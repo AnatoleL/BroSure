@@ -1,57 +1,74 @@
-import { PDFDocument, PDFPage, PageSizes, createPDFAcroField } from "pdf-lib";
+import { PDFDocument, PDFPage, PageSizes, TransformationMatrix, concatTransformationMatrix, createPDFAcroField } from "pdf-lib";
 
-import {program} from "commander"
 import fs from "fs/promises";
 
+/**
+ * Loads a PDF file into memory.
+ * 
+ * @param filename Path to PDF file
+ */
 const loadPdf = async (fileName:string) => {
     const existingBytes = await fs.readFile(fileName);
     const pdfDoc = await PDFDocument.load(existingBytes)
-    return pdfDoc;
 
+    return pdfDoc;
 }
 
-const orderIndexes = (pages: PDFPage[]) : number[] => {
+/**
+ * Returns the array of `pages` indexes so that the pages are in a printable booklet ordering.
+ * Example: for 6 pages, returns [5, 0, 1, 4, 3, 2]
+ * 
+ * @param pages 
+ * @returns 
+ */
+const orderIndexes = (numberOfPages: number) : number[] => {
     const orderedIndexes :number[] = [];
 
-    for (let index = 0; index < (pages.length / 2); index++) { 
+    for (let index = 0; index < (numberOfPages / 2); index++) { 
         if (index % 2 === 0) {
 
-            orderedIndexes.push(pages.length - 1 - index, index);
+            orderedIndexes.push(numberOfPages - 1 - index, index);
         }
         else  {
-            orderedIndexes.push(index, pages.length - 1 - index);
+            orderedIndexes.push(index, numberOfPages - 1 - index);
         }
     }
     return orderedIndexes
 }
 
-const reorderPdf = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
+/**
+ * Reorders and resizes the pages of the given PDF document to booklet format
+ */
+const reorderAndResizePages = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
 
-    const pages = pdfDoc.getPages();
-
-
-
+    const srcPdfSize = pdfDoc.getPageCount();
     const newPdfDoc = await PDFDocument.create()
 
-    if (pages.length % 2 !== 0) {
-        pdfDoc.insertPage(pages.length - 1)
-        console.log("Inserted blank page at the end because of odd number of pages");
+    const orderedIndexes = orderIndexes(srcPdfSize)
+    const copiedPagesInOrder = await newPdfDoc.copyPages(pdfDoc, orderedIndexes)
+
+
+    const transformationMatrices: TransformationMatrix[] = [];
+    for (const copiedPage of copiedPagesInOrder) {
+        transformationMatrices.push([PageSizes.A5[0] / copiedPage.getWidth(), 0, 0, PageSizes.A5[1]/copiedPage.getHeight(), 0, 0])
     }
 
-    const orderedIndexes = orderIndexes(pages)
-    const copiedPages = await newPdfDoc.copyPages(pdfDoc, orderedIndexes)
-    const embeddedPages = await newPdfDoc.embedPages(copiedPages)
+    const embeddedPages = await newPdfDoc.embedPages(copiedPagesInOrder, undefined, transformationMatrices) // embedded pages are needed to merge two vertical pages into one horizontal one
 
+    // For every couple of pages two merge, we create a new horizontal A4 page and put one on the left and one on the right.
     for (let i = 0; i < embeddedPages.length; i = i + 2) {
         const newPage = newPdfDoc.addPage([PageSizes.A4[1], PageSizes.A4[0]])
 
-        newPage.drawPage(embeddedPages[i], {
-            x: 0,
-            y: 0,
-        })
+        // compensating for odd number of pages
+        if ((srcPdfSize % 2 === 0 ) || (i !== 0)) {
+            newPage.drawPage(embeddedPages[i], {
+                x: 0,
+                y: 0,
+            })
+        }
 
         newPage.drawPage(embeddedPages[i + 1], {
-            x: embeddedPages[i].width,
+            x: PageSizes.A5[0],
             y: 0,
         })
     }
@@ -69,12 +86,13 @@ const savePdfAs = async (pdfDoc: PDFDocument, filename: string) => {
 
 const run = async (args: string[]) => {
 
-    const fileName =  args[0];
+    const fileName =  args[2];
 
     const pdfDoc = await loadPdf(fileName);
     console.log(`Loaded ${fileName}`)
 
-    const orderedPdfDoc = await reorderPdf(pdfDoc);
+
+    const orderedPdfDoc = await reorderAndResizePages(pdfDoc);
     console.log(`Reordered pdf`)
 
     const newFilename = `${fileName}-ordered.pdf`;
@@ -83,6 +101,4 @@ const run = async (args: string[]) => {
 
 }
 
-program.parse();
-
-run(program.args);
+run(process.argv);
