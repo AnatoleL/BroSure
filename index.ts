@@ -14,7 +14,10 @@ const orderIndexes = (pages: PDFPage[]) : number[] => {
     const orderedIndexes :number[] = [];
 
     for (let index = 0; index < (pages.length / 2); index++) {
-        orderedIndexes.push(index, pages.length - 1 - index)
+        if (index % 2 === 0)
+            orderedIndexes.push(index, pages.length - 1 - index)
+        else 
+            orderedIndexes.push(pages.length - 1 - index, index)
     }
     return orderedIndexes
 }
