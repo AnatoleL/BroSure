@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage, createPDFAcroField } from "pdf-lib";
+import { PDFDocument, PDFPage, PageSizes, createPDFAcroField } from "pdf-lib";
 
 import {program} from "commander"
 import fs from "fs/promises";
@@ -24,7 +24,9 @@ const reorderPdf = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
     const pages = pdfDoc.getPages();
 
 
+
     const newPdfDoc = await PDFDocument.create()
+
     if (pages.length % 2 !== 0) {
         pdfDoc.insertPage(pages.length - 1)
         console.log("Inserted blank page at the end because of odd number of pages");
@@ -32,8 +34,20 @@ const reorderPdf = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
 
     const orderedIndexes = orderIndexes(pages)
     const copiedPages = await newPdfDoc.copyPages(pdfDoc, orderedIndexes)
-    for (const copiedPage of copiedPages) {
-        newPdfDoc.addPage(copiedPage)
+    const embeddedPages = await newPdfDoc.embedPages(copiedPages)
+
+    for (let i = 0; i < embeddedPages.length; i = i + 2) {
+        const newPage = newPdfDoc.addPage([PageSizes.A4[1], PageSizes.A4[0]])
+
+        newPage.drawPage(embeddedPages[i], {
+            x: 0,
+            y: 0,
+        })
+
+        newPage.drawPage(embeddedPages[i + 1], {
+            x: embeddedPages[i].width,
+            y: 0,
+        })
     }
 
     return newPdfDoc;
