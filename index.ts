@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFPage, createPDFAcroField } from "pdf-lib";
 
 import {program} from "commander"
 import fs from "fs/promises";
@@ -10,12 +10,33 @@ const loadPdf = async (fileName:string) => {
 
 }
 
-const reorderPdf = (pdfDoc: PDFDocument) : PDFDocument => {
+const orderIndexes = (pages: PDFPage[]) : number[] => {
+    const orderedIndexes :number[] = [];
+
+    for (let index = 0; index < (pages.length / 2); index++) {
+        orderedIndexes.push(index, pages.length - 1 - index)
+    }
+    return orderedIndexes
+}
+
+const reorderPdf = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
 
     const pages = pdfDoc.getPages();
-    pdfDoc.insertPage(0, pages[0]);
 
-    return pdfDoc;
+
+    const newPdfDoc = await PDFDocument.create()
+    if (pages.length % 2 !== 0) {
+        pdfDoc.insertPage(pages.length - 1)
+        console.log("Inserted blank page at the end because of odd number of pages");
+    }
+
+    const orderedIndexes = orderIndexes(pages)
+    const copiedPages = await newPdfDoc.copyPages(pdfDoc, orderedIndexes)
+    for (const copiedPage of copiedPages) {
+        newPdfDoc.addPage(copiedPage)
+    }
+
+    return newPdfDoc;
 }
 
 const savePdfAs = async (pdfDoc: PDFDocument, filename: string) => {
@@ -33,11 +54,11 @@ const run = async (args: string[]) => {
     const pdfDoc = await loadPdf(fileName);
     console.log(`Loaded ${fileName}`)
 
-    const orderedPdfDoc = reorderPdf(pdfDoc);
+    const orderedPdfDoc = await reorderPdf(pdfDoc);
     console.log(`Reordered pdf`)
 
     const newFilename = `${fileName}-ordered.pdf`;
-    savePdfAs(pdfDoc, newFilename)
+    savePdfAs(orderedPdfDoc, newFilename)
     console.log (`PDF Saved as ${newFilename}`)
 
 }
