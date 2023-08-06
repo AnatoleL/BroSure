@@ -13,13 +13,14 @@ const loadPdfFromFile = async (file:File) => {
 }
 
 /**
- * Returns the array of `pages` indexes so that the pages are in a printable booklet ordering.
+ * Given a number of pages, returns the pages indexes in the right order to print them as a booklet. Adds a leading -1 for odd number of pages.
  * Example: for 6 pages, returns [5, 0, 1, 4, 3, 2]
+ * Example: for 5 pages, returns [-1, 0, 1, 4, 3, 2]
  * 
  * @param pages 
  * @returns 
  */
-const orderIndexes = (numberOfPages: number) : number[] => {
+const getIndexOrderArrayFromPageCount = (numberOfPages: number) : number[] => {
     const orderedIndexes :number[] = [];
 
     for (let index = 0; index < (numberOfPages / 2); index++) { 
@@ -31,6 +32,7 @@ const orderIndexes = (numberOfPages: number) : number[] => {
             orderedIndexes.push(index, numberOfPages - 1 - index);
         }
     }
+
     return orderedIndexes
 }
 
@@ -39,10 +41,16 @@ const orderIndexes = (numberOfPages: number) : number[] => {
  */
 const reorderAndResizePages = async (pdfDoc: PDFDocument) : Promise<PDFDocument> => {
 
-    const srcPdfSize = pdfDoc.getPageCount();
     const newPdfDoc = await PDFDocument.create()
 
-    const orderedIndexes = orderIndexes(srcPdfSize)
+    // Add a blank page if number of pages is odd
+    if (pdfDoc.getPageCount() % 2 === 1) {
+        const blankPage = pdfDoc.addPage();
+        blankPage.drawText(' ') // https://github.com/Hopding/pdf-lib/issues/796
+        pdfDoc.save();
+    }
+
+    const orderedIndexes = getIndexOrderArrayFromPageCount(pdfDoc.getPageCount())
     const copiedPagesInOrder = await newPdfDoc.copyPages(pdfDoc, orderedIndexes)
 
 
@@ -58,12 +66,10 @@ const reorderAndResizePages = async (pdfDoc: PDFDocument) : Promise<PDFDocument>
         const newPage = newPdfDoc.addPage([PageSizes.A4[1], PageSizes.A4[0]])
 
         // compensating for odd number of pages
-        if ((srcPdfSize % 2 === 0 ) || (i !== 0)) {
-            newPage.drawPage(embeddedPages[i], {
-                x: 0,
-                y: 0,
-            })
-        }
+        newPage.drawPage(embeddedPages[i], {
+            x: 0,
+            y: 0,
+        })
 
         newPage.drawPage(embeddedPages[i + 1], {
             x: PageSizes.A5[0],
@@ -93,7 +99,7 @@ export default async (file: File): Promise<ArrayBuffer> =>  {
     const orderedPdfDoc = await reorderAndResizePages(pdfDoc);
     console.log(`Reordered pdf`)
 
-    const newPdfBytes = await pdfDoc.save();
+    const newPdfBytes = await orderedPdfDoc.save();
 
     return newPdfBytes;
 }
