@@ -1,15 +1,13 @@
-import { PDFDocument, PDFPage, PageSizes, TransformationMatrix, concatTransformationMatrix, createPDFAcroField } from "pdf-lib";
-
-import fs from "fs/promises";
+import { PDFDocument, PageSizes, TransformationMatrix } from "pdf-lib";
 
 /**
  * Loads a PDF file into memory.
  * 
  * @param filename Path to PDF file
  */
-export const loadPdf = async (fileName:string) => {
-    const existingBytes = await fs.readFile(fileName);
-    const pdfDoc = await PDFDocument.load(existingBytes)
+const loadPdfFromFile = async (file:File) => {
+    const pdfBytes = await file.arrayBuffer()
+    const pdfDoc = await PDFDocument.load(pdfBytes)
 
     return pdfDoc;
 }
@@ -76,26 +74,26 @@ const reorderAndResizePages = async (pdfDoc: PDFDocument) : Promise<PDFDocument>
     return newPdfDoc;
 }
 
-const savePdfAs = async (pdfDoc: PDFDocument, filename: string) => {
+const savePdfAs = async (pdfDoc: PDFDocument) => {
 
     const newPdfBytes = await pdfDoc.save()
+    return newPdfBytes;
 
-    await fs.writeFile(filename, newPdfBytes);
 }
 
 
-export const reorderPdfFromPath = async (filename: string): Promise<string> =>  {
+export default async (file: File): Promise<ArrayBuffer> =>  {
 
-    const pdfDoc = await loadPdf(filename);
+    const pdfDoc = await loadPdfFromFile(file);
+    const filename = file.name;
+
     console.log(`Loaded ${filename}`)
 
 
     const orderedPdfDoc = await reorderAndResizePages(pdfDoc);
     console.log(`Reordered pdf`)
 
-    const newFilename = `${filename}-ordered.pdf`;
-    await savePdfAs(orderedPdfDoc, newFilename)
-    console.log (`PDF Saved as ${newFilename}`)
+    const newPdfBytes = await pdfDoc.save();
 
-    return newFilename
+    return newPdfBytes;
 }
