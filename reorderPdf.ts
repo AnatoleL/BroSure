@@ -7,7 +7,7 @@ import fs from "fs/promises";
  * 
  * @param filename Path to PDF file
  */
-const loadPdf = async (fileName:string) => {
+export const loadPdf = async (fileName:string) => {
     const existingBytes = await fs.readFile(fileName);
     const pdfDoc = await PDFDocument.load(existingBytes)
 
@@ -84,21 +84,18 @@ const savePdfAs = async (pdfDoc: PDFDocument, filename: string) => {
 }
 
 
-const run = async (args: string[]) => {
+export const reorderPdfFromPath = async (filename: string): Promise<string> =>  {
 
-    const fileName =  args[2];
-
-    const pdfDoc = await loadPdf(fileName);
-    console.log(`Loaded ${fileName}`)
+    const pdfDoc = await loadPdf(filename);
+    console.log(`Loaded ${filename}`)
 
 
     const orderedPdfDoc = await reorderAndResizePages(pdfDoc);
     console.log(`Reordered pdf`)
 
-    const newFilename = `${fileName}-ordered.pdf`;
-    savePdfAs(orderedPdfDoc, newFilename)
+    const newFilename = `${filename}-ordered.pdf`;
+    await savePdfAs(orderedPdfDoc, newFilename)
     console.log (`PDF Saved as ${newFilename}`)
 
+    return newFilename
 }
-
-run(process.argv);

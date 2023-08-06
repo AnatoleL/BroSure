@@ -6,17 +6,25 @@
   "scripts": {
     "start": "ts-node index.ts",
     "test": "npm start testfile.pdf",
-    "type": "tsc index.ts"
+    "type": "tsc index.ts",
+    "run": "nodemon server.ts"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.17",
+    "@types/multer": "^1.4.7",
     "@types/node": "^20.4.8",
+    "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6"
   },
   "dependencies": {
     "commander": "^11.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
     "pdf-lib": "^1.17.1"
   }
 }
